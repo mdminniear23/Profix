@@ -1,0 +1,6 @@
+Metadata-Version: 2.4
+Name: profix
+Version: 0.1.0
+Summary: Linux Steam and Proton prefix manager
+Requires-Python: >=3.12
+Requires-Dist: PyYAML>=6.0

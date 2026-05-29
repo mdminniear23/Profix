@@ -1,0 +1,4 @@
+steam_paths:
+  - "~/.local/share/Steam"
+  - "~/.steam/steam"
+  - "~/.var/app/com.valvesoftware.Steam/data/Steam"

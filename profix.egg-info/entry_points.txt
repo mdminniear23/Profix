@@ -1,0 +1,2 @@
+[console_scripts]
+profix = profix.main:main
