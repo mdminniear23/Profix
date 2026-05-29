@@ -1,11 +1,14 @@
 import argparse
 
-from profix.db import init_db
+from profix.db import init_db, save_game
 from profix.steam import find_steam_paths, find_app_manifests, parse_acf_manifest
 
 
 def scan(args):
     print("Scanning Steam folders...")
+
+    if not args.dry_run:
+        init_db()
 
     steam_paths = find_steam_paths()
 
@@ -24,16 +27,36 @@ def scan(args):
 
     print("\nInstalled Steam apps:")
 
+    # Loop
+
     for manifest in manifests:
         game = parse_acf_manifest(manifest)
 
-        if args.manifest_paths:
-            print(
-                f"- {game.get('name', 'Unknown')} ({game.get('appid', 'no appid')})\n"
-                f"  Manifest: {manifest}"
+        app_id = game.get("appid")
+        name = game.get("name", "Unknown")
+        install_path = None
+        manifest_path = str(manifest)
+        prefix_path = None
+
+        if not args.dry_run:
+            save_game(
+                app_id=app_id,
+                name=name,
+                install_path=install_path,
+                manifest_path=manifest_path,
+                prefix_path=prefix_path,
             )
+
+        if args.manifest_paths:
+            print(f"- {name} ({app_id})")
+            print(f"  Manifest: {manifest_path}")
         else:
-            print(f"- {game.get('name', 'Unknown')} ({game.get('appid', 'no appid')})")
+            print(f"- {name} ({app_id})")
+
+    if args.dry_run:
+        print(f"\nDry run complete. Found {len(manifests)} Steam apps. Nothing saved.")
+    else:
+        print(f"\nSaved {len(manifests)} Steam apps to database.")
 
 def init_database(args):
     init_db()
@@ -52,6 +75,12 @@ def main():
         "--manifest-paths",
         action="store_true",
         help="Show the path to each Steam appmanifest file"
+    )
+    scan_parser.add_argument(
+        "--dry-run",
+        "--dryrun",
+        action="store_true",
+        help="Scan without saving results to the database"
     )
     scan_parser.set_defaults(func=scan)
 

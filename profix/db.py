@@ -2,7 +2,11 @@ import sqlite3
 from pathlib import Path
 
 DB_PATH = Path.home() / ".local/share/profix/profix.db"
-SCHEMA_PATH = Path(__file__).parent / "sql" / "schema.sql"
+SQL_DIR = Path(__file__).parent / "sql"
+
+
+def read_sql(filename):
+    return (SQL_DIR / filename).read_text(encoding="utf-8")
 
 
 def get_connection():
@@ -11,7 +15,18 @@ def get_connection():
 
 
 def init_db():
-    schema = SCHEMA_PATH.read_text()
-
     with get_connection() as conn:
-        conn.executescript(schema)
+        conn.executescript(read_sql("schema.sql"))
+
+
+def save_game(app_id, name, install_path, manifest_path, prefix_path):
+    with get_connection() as conn:
+        conn.execute(
+            read_sql("save_game.sql"),
+            (app_id, name, install_path, manifest_path, prefix_path),
+        )
+
+
+def get_games():
+    with get_connection() as conn:
+        return conn.execute(read_sql("get_games.sql")).fetchall()
