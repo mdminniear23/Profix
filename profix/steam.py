@@ -1,13 +1,17 @@
 # profix/steam.py
-from pathlib import Path
 from profix.config import get_steam_paths
 
-
 def find_steam_paths():
+    """
+    Find all Steam installation paths that exist on the system.
+    Returns a list of Path objects pointing to the found Steam installations.
+    """
     return [path for path in get_steam_paths() if path.exists()]
 
-
 def find_app_manifests():
+    """
+    Search for Steam appmanifest .acf files in the steamapps directories of all found Steam installations.
+    Returns a list of Path objects pointing to the found manifest files."""
     manifests = []
 
     for steam_path in find_steam_paths():
@@ -19,7 +23,10 @@ def find_app_manifests():
     return manifests
 
 def parse_acf_manifest(manifest_path):
-    game = {}
+    """
+    Parse a Steam appmanifest .acf file and return a dictionary of its contents.
+    """
+    manifest = {}
 
     with manifest_path.open("r", encoding="utf-8") as file:
         for line in file:
@@ -33,6 +40,6 @@ def parse_acf_manifest(manifest_path):
             if len(parts) >= 4:
                 key = parts[1]
                 value = parts[3]
-                game[key] = value
+                manifest[key] = value
 
-    return game
+    return manifest

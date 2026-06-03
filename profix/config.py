@@ -5,11 +5,18 @@ DEFAULT_CONFIG_PATH = Path(__file__).parent / "data" / "default.yml"
 
 
 def load_default_config():
+    """
+    Load the default configuration from the YAML file and return it as a dictionary.
+    """
     with DEFAULT_CONFIG_PATH.open("r", encoding="utf-8") as file:
         return yaml.safe_load(file)
 
 
 def get_steam_paths():
+    """
+    Retrieve the Steam installation paths from the configuration.
+    Returns a list of Path objects pointing to the Steam installations.
+    """
     config = load_default_config()
     raw_paths = config.get("steam_paths", [])
 
