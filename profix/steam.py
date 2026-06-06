@@ -1,4 +1,5 @@
 # profix/steam.py
+from pathlib import Path
 from profix.config import get_steam_paths
 
 def find_steam_paths():
@@ -11,7 +12,8 @@ def find_steam_paths():
 def find_app_manifests():
     """
     Search for Steam appmanifest .acf files in the steamapps directories of all found Steam installations.
-    Returns a list of Path objects pointing to the found manifest files."""
+    Returns a list of Path objects pointing to the found manifest files.
+    """
     manifests = []
 
     for steam_path in find_steam_paths():
@@ -25,6 +27,13 @@ def find_app_manifests():
 def parse_acf_manifest(manifest_path):
     """
     Parse a Steam appmanifest .acf file and return a dictionary of its contents.
+
+    Args:
+        manifest_path (Path): The path to the appmanifest .acf file.
+
+    Returns:
+        dict: A dictionary containing the key-value pairs from the manifest file.
+    Note: This is a very basic parser that only handles simple key-value pairs and does not support nested structures or arrays. It is sufficient for extracting the appid and name of the game, but may not work correctly for more complex manifest files.
     """
     manifest = {}
 
@@ -43,3 +52,52 @@ def parse_acf_manifest(manifest_path):
                 manifest[key] = value
 
     return manifest
+
+def find_proton_candidates() -> list[Path]:
+    """
+    Search for Proton executables in the steamapps/common directories of all found Steam installations.
+
+    Returns:
+        list[Path]: A list of Path objects pointing to the found Proton executables, sorted with Proton Experimental first and then by lexical order of the parent directory name.
+    """
+    candidates: list[Path] = []
+
+    for steam_root in find_steam_paths():
+        common_dir = steam_root / "steamapps" / "common"
+        if not common_dir.exists():
+            continue
+
+        for entry in common_dir.iterdir():
+            proton_bin = entry / "proton"
+            if entry.is_dir() and proton_bin.is_file():
+                candidates.append(proton_bin)
+
+    # Prefer Proton Experimental, then lexical newest
+    candidates.sort(key=lambda p: ("experimental" not in p.parent.name.lower(), p.parent.name.lower()))
+    return candidates
+
+
+def resolve_proton_path(configured: Path | None) -> Path:
+    """
+    Resolve the Proton executable path.
+
+    Args:
+        configured (Path | None): The configured Proton path from the configuration.
+
+    Returns:
+        Path: The resolved Proton executable path.
+
+    Raises:
+        FileNotFoundError: If the configured path does not exist or no Proton executable is found.
+    """
+    if configured:
+        if configured.exists():
+            return configured
+        raise FileNotFoundError(f"Configured proton_path does not exist: {configured}")
+
+    candidates = find_proton_candidates()
+    if not candidates:
+        raise FileNotFoundError(
+            "No Proton executable found. Set shared_profix.proton_path in config."
+        )
+    return candidates[0]
