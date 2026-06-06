@@ -23,6 +23,12 @@ def _shared():
     return config.get("shared_profix", {}) or {}
 
 
+def _tools():
+    """Get the tools configuration section as a dictionary."""
+    config = load_default_config()
+    return config.get("tools", {}) or {}
+
+
 def get_shared_profix_root() -> Path:
     """Get the root directory for shared profix data from the configuration, expanding user directories."""
     raw = _shared().get("root", "~/.local/share/profix/shared")
@@ -64,3 +70,13 @@ def get_non_game_name_patterns() -> list[str]:
     config = load_default_config()
     raw = config.get("non_game_name_patterns", [])
     return [str(item).strip().lower() for item in raw if str(item).strip()]
+
+
+def get_vortex_installer_url() -> str | None:
+    """Get the default Vortex installer URL from configuration."""
+    tools = _tools()
+    vortex = tools.get("vortex", {}) if isinstance(tools, dict) else {}
+    raw = vortex.get("installer_url") if isinstance(vortex, dict) else None
+    if not raw:
+        return None
+    return str(raw).strip()

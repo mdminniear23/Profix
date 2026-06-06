@@ -9,6 +9,7 @@ from profix.config import (
     get_shared_profix_games_dir,
     get_shared_profix_link_name_template,
     get_shared_profix_auto_init,
+    get_vortex_installer_url,
 )
 from profix.db import init_db, save_game, get_games_for_sync, set_game_prefix_path
 from profix.profix_sync import (
@@ -16,6 +17,13 @@ from profix.profix_sync import (
     render_link_name,
     reconcile_game_layout,
     remove_game_dir_entry,
+)
+from profix.vortex import (
+    installer_filename_from_url,
+    get_vortex_installer_cache_dir,
+    download_installer,
+    find_vortex_executable,
+    resolve_installer_url,
 )
 from profix.steam import (
     find_steam_paths,
@@ -31,6 +39,37 @@ def _is_prefix_initialized(root: Path) -> bool:
     """
     return (root / "pfx" / "system.reg").exists() and (root / "pfx" / "drive_c").exists()
 
+
+def _get_steam_client_install_path() -> Path:
+    """Pick a Steam client install path for Proton runtime environment variables."""
+    steam_paths = find_steam_paths()
+    if not steam_paths:
+        raise RuntimeError("No Steam installations found for STEAM_COMPAT_CLIENT_INSTALL_PATH.")
+    return steam_paths[0]
+
+
+def _build_proton_env(shared_root: Path, proton_path: Path) -> dict[str, str]:
+    """Build env vars needed to run processes through Proton."""
+    env = os.environ.copy()
+    env["STEAM_COMPAT_DATA_PATH"] = str(shared_root)
+    env["STEAM_COMPAT_CLIENT_INSTALL_PATH"] = str(_get_steam_client_install_path())
+    env["STEAM_COMPAT_TOOL_PATHS"] = str(proton_path.parent)
+    return env
+
+
+def _ensure_vortex_shortcut_script() -> Path:
+    """Create a small launcher script that calls 'profix launch vortex'."""
+    launcher_dir = Path.home() / ".local" / "share" / "profix" / "bin"
+    launcher_path = launcher_dir / "profix-launch-vortex"
+    launcher_dir.mkdir(parents=True, exist_ok=True)
+
+    script_content = "#!/usr/bin/env bash\nexec profix launch vortex \"$@\"\n"
+    if not launcher_path.exists() or launcher_path.read_text(encoding="utf-8") != script_content:
+        launcher_path.write_text(script_content, encoding="utf-8")
+        launcher_path.chmod(0o755)
+
+    return launcher_path
+
 def init_shared_profix(args):
     """
     Initialize the shared profix prefix by running 'proton run wineboot -u' with the appropriate environment variable set to create the prefix layout. 
@@ -45,15 +84,7 @@ def init_shared_profix(args):
 
     proton_path = resolve_proton_path(args.proton_path or get_shared_profix_proton_path())
 
-    steam_paths = find_steam_paths()
-    if not steam_paths:
-        raise RuntimeError("No Steam installations found for STEAM_COMPAT_CLIENT_INSTALL_PATH.")
-    client_install_path = steam_paths[0]
-
-    env = os.environ.copy()
-    env["STEAM_COMPAT_DATA_PATH"] = str(shared_root)
-    env["STEAM_COMPAT_CLIENT_INSTALL_PATH"] = str(client_install_path)
-    env["STEAM_COMPAT_TOOL_PATHS"] = str(proton_path.parent)  # helpful for Proton runtime lookups
+    env = _build_proton_env(shared_root, proton_path)
 
     subprocess.run(
         [str(proton_path), "run", "wineboot", "-u"],
@@ -65,6 +96,95 @@ def init_shared_profix(args):
         raise RuntimeError("Prefix init command completed, but pfx layout was not created.")
 
     print(f"Initialized shared profix at: {shared_root / 'pfx'}")
+
+
+def install_vortex(args):
+    """Install Vortex into the shared profix using Proton."""
+    shared_root = get_shared_profix_root()
+    shared_root.mkdir(parents=True, exist_ok=True)
+
+    if not _is_prefix_initialized(shared_root):
+        if get_shared_profix_auto_init():
+            print("Shared profix not initialized. Initializing first...")
+            init_shared_profix(argparse.Namespace(force=False, proton_path=args.proton_path))
+        else:
+            raise RuntimeError(
+                "Shared profix is not initialized. Run 'profix init-shared-profix' first."
+            )
+
+    proton_path = resolve_proton_path(args.proton_path or get_shared_profix_proton_path())
+    env = _build_proton_env(shared_root, proton_path)
+
+    if args.installer:
+        installer_path = Path(args.installer).expanduser()
+        if not installer_path.is_file():
+            raise FileNotFoundError(f"Installer not found: {installer_path}")
+        print(f"Using local installer: {installer_path}")
+    else:
+        installer_url = args.url or get_vortex_installer_url()
+        if not installer_url:
+            raise RuntimeError(
+                "No installer URL configured. Provide --url or --installer."
+            )
+
+        resolved_installer_url = resolve_installer_url(installer_url)
+
+        cache_dir = get_vortex_installer_cache_dir(shared_root)
+        installer_path = cache_dir / installer_filename_from_url(resolved_installer_url)
+        needs_download = args.force_download or not installer_path.exists()
+
+        print(f"Installer URL: {installer_url}")
+        if resolved_installer_url != installer_url:
+            print(f"Resolved download URL: {resolved_installer_url}")
+
+        if needs_download:
+            if not args.yes:
+                answer = input("Download installer now? [y/N]: ").strip().lower()
+                if answer not in {"y", "yes"}:
+                    print("Installation cancelled before download.")
+                    return
+
+            print(f"Downloading installer to: {installer_path}")
+            download_installer(resolved_installer_url, installer_path)
+        else:
+            print(f"Using cached installer: {installer_path}")
+
+    print("Launching Vortex installer in shared profix...")
+    subprocess.run(
+        [str(proton_path), "run", str(installer_path)],
+        check=True,
+        env=env,
+    )
+
+    shortcut = _ensure_vortex_shortcut_script()
+    vortex_exe = find_vortex_executable(shared_root)
+    if vortex_exe:
+        print(f"Detected Vortex executable: {vortex_exe}")
+    else:
+        print("Installer finished. Could not auto-detect Vortex.exe yet.")
+
+    print("Launch with: profix launch vortex")
+    print(f"Shortcut script: {shortcut}")
+
+
+def launch_vortex(args):
+    """Launch Vortex from the shared profix via Proton."""
+    shared_root = get_shared_profix_root()
+    if not _is_prefix_initialized(shared_root):
+        raise RuntimeError(
+            "Shared profix is not initialized. Run 'profix init-shared-profix' first."
+        )
+
+    proton_path = resolve_proton_path(args.proton_path or get_shared_profix_proton_path())
+    vortex_exe = find_vortex_executable(shared_root)
+    if not vortex_exe:
+        raise FileNotFoundError(
+            "Could not locate Vortex.exe in shared profix. Run 'profix install vortex' first."
+        )
+
+    env = _build_proton_env(shared_root, proton_path)
+    print(f"Launching Vortex: {vortex_exe}")
+    subprocess.run([str(proton_path), "run", str(vortex_exe)], check=True, env=env)
 
 
 def sync_shared_profix(args):
@@ -335,6 +455,61 @@ def main():
         help="Remove existing synced entries for filtered non-game apps"
     )
     sync_parser.set_defaults(func=sync_shared_profix)
+
+    # Install command family
+    install_parser = subparsers.add_parser(
+        "install",
+        help="Install supported tools into the shared profix"
+    )
+    install_subparsers = install_parser.add_subparsers(dest="install_target", required=True)
+
+    install_vortex_parser = install_subparsers.add_parser(
+        "vortex",
+        help="Install Vortex into the shared profix"
+    )
+    install_vortex_parser.add_argument(
+        "--installer",
+        type=Path,
+        help="Path to a local Vortex installer executable"
+    )
+    install_vortex_parser.add_argument(
+        "--url",
+        help="Installer URL to download Vortex from"
+    )
+    install_vortex_parser.add_argument(
+        "--force-download",
+        action="store_true",
+        help="Re-download installer even if cached copy exists"
+    )
+    install_vortex_parser.add_argument(
+        "--yes",
+        action="store_true",
+        help="Skip download confirmation prompt"
+    )
+    install_vortex_parser.add_argument(
+        "--proton-path",
+        type=Path,
+        help="Path to the Proton executable to use"
+    )
+    install_vortex_parser.set_defaults(func=install_vortex)
+
+    # Launch command family
+    launch_parser = subparsers.add_parser(
+        "launch",
+        help="Launch installed tools from the shared profix"
+    )
+    launch_subparsers = launch_parser.add_subparsers(dest="launch_target", required=True)
+
+    launch_vortex_parser = launch_subparsers.add_parser(
+        "vortex",
+        help="Launch Vortex from the shared profix"
+    )
+    launch_vortex_parser.add_argument(
+        "--proton-path",
+        type=Path,
+        help="Path to the Proton executable to use"
+    )
+    launch_vortex_parser.set_defaults(func=launch_vortex)
 
     # Parse arguments and call the appropriate function
     args = parser.parse_args()

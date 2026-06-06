@@ -89,6 +89,38 @@ Use a specific Proton executable:
 profix init-shared-profix --proton-path "/path/to/steamapps/common/Proton - Experimental/proton"
 ```
 
+### Install Vortex into the shared profix
+
+Install with configured default URL (asks for confirmation before download):
+
+```bash
+profix install vortex
+```
+
+Use a local installer executable:
+
+```bash
+profix install vortex --installer /path/to/Vortex.exe
+```
+
+Force redownload and skip prompt:
+
+```bash
+profix install vortex --force-download --yes
+```
+
+Use a custom installer URL:
+
+```bash
+profix install vortex --url "https://example.com/VortexSetup.exe"
+```
+
+Launch Vortex from the shared profix:
+
+```bash
+profix launch vortex
+```
+
 ### Sync game links into the shared profix
 
 Preview link operations:
@@ -156,6 +188,10 @@ non_game_name_patterns:
   - "redistributable"
   - "compatibility tool"
 
+tools:
+  vortex:
+    installer_url: "https://github.com/Nexus-Mods/Vortex/releases/latest/download/vortex-setup.exe"
+
 shared_profix:
   root: ~/.local/share/profix/shared
   games_dir: drive_c/Games
@@ -171,6 +207,7 @@ shared_profix:
 - `auto_init`: auto-initialize shared profix during sync if needed
 - `non_game_appids`: app IDs excluded from scan/sync by default
 - `non_game_name_patterns`: case-insensitive text patterns used to exclude non-game apps
+- `tools.vortex.installer_url`: default URL for `profix install vortex`
 
 ## Database
 

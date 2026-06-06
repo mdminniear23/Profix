@@ -15,6 +15,10 @@ non_game_name_patterns:
   - "redistributable"
   - "compatibility tool"
 
+tools:
+  vortex:
+    installer_url: "https://github.com/Nexus-Mods/Vortex/releases/latest/download/vortex-setup.exe"
+
 shared_profix:
   root: ~/.local/share/profix/shared
   games_dir: drive_c/Games
