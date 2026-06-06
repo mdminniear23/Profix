@@ -10,7 +10,12 @@ def _normalize_windows_path(windows_path):
     if not normalized.lower().startswith("c:/"):
         raise ValueError("Windows paths must start with C:/")
 
-    parts = [part for part in normalized[3:].split("/") if part]
+    relative_path = normalized[3:]
+
+    if relative_path.startswith("/") or "//" in relative_path:
+        raise ValueError("Windows paths cannot contain empty path segments")
+
+    parts = [part for part in relative_path.split("/") if part]
 
     if any(part == ".." for part in parts):
         raise ValueError("Windows paths must stay inside drive_c")

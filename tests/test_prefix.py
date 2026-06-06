@@ -16,6 +16,10 @@ class PrefixCreationTests(unittest.TestCase):
         with self.assertRaises(ValueError):
             _normalize_windows_path("C:/Program Files/../Secrets")
 
+    def test_normalize_windows_path_rejects_empty_segments(self):
+        with self.assertRaises(ValueError):
+            _normalize_windows_path("C://Program Files/My Game")
+
     def test_create_proton_prefix_creates_symlinked_game_path(self):
         with TemporaryDirectory() as temp_dir:
             temp_path = Path(temp_dir)
