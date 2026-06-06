@@ -13,6 +13,7 @@ Profix scans your Steam installations for installed games, parses their app mani
 - Saves and updates game metadata in a local SQLite database (`~/.local/share/profix/profix.db`)
 - Supports dry-run mode to preview scan results without writing to the database
 - Optionally displays the path to each manifest file during a scan
+- Creates minimal Proton-style prefixes with Windows-path symlinks into real game folders
 
 ## Requirements
 
@@ -59,6 +60,18 @@ Create (or reset) the database schema:
 ```bash
 profix init-db
 ```
+
+### Create a Proton-style prefix
+
+Create a prefix and map a real game directory into a Windows-looking path:
+
+```bash
+profix create-prefix ~/.local/share/profix/prefixes/my-game \
+  --link "C:/Program Files/My Game=/games/My Game"
+```
+
+This creates a minimal `drive_c` / `dosdevices` layout and symlinks the target directory
+under `drive_c`, so tools that expect Windows-style paths can reference it.
 
 ## Configuration
 

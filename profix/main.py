@@ -1,6 +1,7 @@
 import argparse
 
 from profix.db import init_db, save_game
+from profix.prefix import create_proton_prefix
 from profix.steam import find_steam_paths, find_app_manifests, parse_acf_manifest
 
 def scan(args):
@@ -74,6 +75,20 @@ def init_database(args):
     init_db()
     print("Database initialized.")
 
+
+def create_prefix(args):
+    """
+    Create a new Proton-style prefix with Windows-path symlinks.
+    """
+    created_links = create_proton_prefix(args.prefix_path, args.link)
+
+    print(f"Created prefix at {args.prefix_path}")
+
+    if created_links:
+        print("Configured Windows path symlinks:")
+        for windows_path, link_path, target_path in created_links:
+            print(f"- {windows_path} -> {target_path} ({link_path})")
+
 # Main function to parse CLI arguments and dispatch commands
 def main():
     parser = argparse.ArgumentParser(
@@ -106,6 +121,19 @@ def main():
     db_parser = subparsers.add_parser("init-db", help="Initialize the Profix database")
     # Set the default function to call for the init-db command
     db_parser.set_defaults(func=init_database)
+
+    prefix_parser = subparsers.add_parser(
+        "create-prefix",
+        help="Create a Proton-style prefix with Windows-path symlinks",
+    )
+    prefix_parser.add_argument("prefix_path", help="Directory where the prefix should be created")
+    prefix_parser.add_argument(
+        "--link",
+        action="append",
+        default=[],
+        help="Windows-path mapping in the form C:/Path/Inside/Prefix=/real/path",
+    )
+    prefix_parser.set_defaults(func=create_prefix)
 
     # Parse arguments and call the appropriate function
     args = parser.parse_args()
