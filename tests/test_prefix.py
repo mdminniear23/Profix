@@ -47,7 +47,7 @@ class PrefixCreationTests(unittest.TestCase):
             create_proton_prefix(prefix_path, [link_spec])
             created_links = create_proton_prefix(prefix_path, [link_spec])
 
-            self.assertEqual(len(created_links), 1)
+            self.assertEqual(len(created_links), 0)
             self.assertEqual(
                 (prefix_path / "drive_c" / "Program Files" / "My Game").resolve(),
                 game_path.resolve(),

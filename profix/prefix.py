@@ -27,10 +27,10 @@ def _ensure_symlink(link_path, target_path):
         expected_target = target_path
 
         if not expected_target.is_absolute():
-            expected_target = (link_path.parent / expected_target).resolve()
+            expected_target = link_path.parent / expected_target
 
-        if current_target == target_path or link_path.resolve() == expected_target:
-            return
+        if link_path.resolve() == expected_target.resolve():
+            return False
         raise FileExistsError(
             f"Symlink {link_path} points to {current_target}, expected {target_path}"
         )
@@ -39,6 +39,7 @@ def _ensure_symlink(link_path, target_path):
         raise FileExistsError(f"{link_path} already exists")
 
     link_path.symlink_to(target_path)
+    return True
 
 
 def parse_link_spec(link_spec):
@@ -80,7 +81,8 @@ def create_proton_prefix(prefix_path, link_specs):
         link_path = drive_c_path / _normalize_windows_path(windows_path)
         link_path.parent.mkdir(parents=True, exist_ok=True)
 
-        _ensure_symlink(link_path, target_path.resolve())
-        created_links.append((windows_path, link_path, target_path.resolve()))
+        resolved_target_path = target_path.resolve()
+        if _ensure_symlink(link_path, resolved_target_path):
+            created_links.append((windows_path, link_path, resolved_target_path))
 
     return created_links
