@@ -1,4 +1,10 @@
 steam_paths:
-  - "~/.local/share/Steam"
-  - "~/.steam/steam"
-  - "~/.var/app/com.valvesoftware.Steam/data/Steam"
+  - ~/.local/share/Steam
+  - ~/.steam/steam
+  - ~/.var/app/com.valvesoftware.Steam/data/Steam
+shared_profix:
+  root: ~/.local/share/profix/shared
+  games_dir: drive_c/Games
+  link_name_template: "{name} [{app_id}]"
+  proton_path: 
+  auto_init: true
