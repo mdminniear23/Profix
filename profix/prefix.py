@@ -32,7 +32,7 @@ def _ensure_symlink(link_path, target_path):
         if link_path.resolve() == expected_target.resolve():
             return False
         raise FileExistsError(
-            f"Symlink {link_path} points to {current_target}, expected {target_path}"
+            f"Symlink {link_path} points to {current_target}, expected {expected_target}"
         )
 
     if link_path.exists():
