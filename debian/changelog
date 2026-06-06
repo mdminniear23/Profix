@@ -1,0 +1,7 @@
+profix (0.1.0-1) unstable; urgency=medium
+
+  * Initial Debian packaging.
+  * Package shared profix and sync workflow commands.
+  * Package Vortex install and launch command workflow.
+
+ -- mdminniear23 <mdminniear23@gmail.com>  Sat, 06 Jun 2026 17:00:00 +0000

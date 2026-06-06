@@ -1,0 +1,19 @@
+Source: profix
+Section: utils
+Priority: optional
+Maintainer: mdminniear23 <mdminniear23@gmail.com>
+Build-Depends: debhelper-compat (= 13),
+               dh-sequence-python3,
+               pybuild-plugin-pyproject,
+               python3-all,
+               python3-setuptools
+Standards-Version: 4.7.0
+Rules-Requires-Root: no
+Homepage: https://github.com/mdminniear23/Profix
+
+Package: profix
+Architecture: all
+Depends: ${misc:Depends}, ${python3:Depends}, python3-yaml
+Description: Linux Steam and Proton prefix manager
+ Manage Steam scan metadata and maintain a shared profix for
+ cross-game mod tool workflows.
