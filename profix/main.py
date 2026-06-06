@@ -11,12 +11,18 @@ from profix.config import (
     get_shared_profix_auto_init,
 )
 from profix.db import init_db, save_game, get_games_for_sync, set_game_prefix_path
-from profix.profix_sync import ensure_shared_games_dir, render_link_name, reconcile_game_layout
+from profix.profix_sync import (
+    ensure_shared_games_dir,
+    render_link_name,
+    reconcile_game_layout,
+    remove_game_dir_entry,
+)
 from profix.steam import (
     find_steam_paths,
     find_app_manifests,
     parse_acf_manifest,
     resolve_proton_path,
+    is_likely_game,
 )
 
 def _is_prefix_initialized(root: Path) -> bool:
@@ -86,12 +92,22 @@ def sync_shared_profix(args):
         return
 
     counts = {"created": 0, "unchanged": 0, "skipped": 0, "failed": 0}
+    filtered_non_games = 0
+    removed_non_games = 0
+    remove_failed = 0
+    non_game_dirs_to_remove = []
 
     print(f"Syncing {len(games)} games into: {games_dir}")
 
     for app_id, name, install_path, manifest_path in games:
         link_name = render_link_name(link_template, name or "Unknown", app_id or "unknown")
         game_dir = games_dir / link_name
+
+        if not args.include_non_games and not is_likely_game(app_id, name):
+            filtered_non_games += 1
+            if args.remove_non_games:
+                non_game_dirs_to_remove.append((name, app_id, game_dir))
+            continue
 
         if not install_path or not manifest_path:
             counts["skipped"] += 1
@@ -123,12 +139,28 @@ def sync_shared_profix(args):
         if result in {"created", "unchanged"} and not args.dry_run:
             set_game_prefix_path(app_id, str(game_dir / "pfx"))
 
+    if args.remove_non_games:
+        for name, app_id, game_dir in non_game_dirs_to_remove:
+            remove_result = remove_game_dir_entry(game_dir=game_dir, dry_run=args.dry_run)
+            if remove_result == "removed":
+                removed_non_games += 1
+                if args.dry_run:
+                    print(f"- would-remove non-game entry {name} ({app_id})")
+                else:
+                    print(f"- removed non-game entry {name} ({app_id})")
+            elif remove_result == "failed":
+                remove_failed += 1
+                print(f"- failed to remove non-game entry {name} ({app_id}) at {game_dir}")
+
     print(
         "\nSync complete: "
         f"created={counts['created']} "
         f"unchanged={counts['unchanged']} "
         f"skipped={counts['skipped']} "
-        f"failed={counts['failed']}"
+        f"failed={counts['failed']} "
+        f"filtered_non_games={filtered_non_games} "
+        f"removed_non_games={removed_non_games} "
+        f"remove_failed={remove_failed}"
     )
 
 def scan(args):
@@ -160,6 +192,8 @@ def scan(args):
         return
 
     print("\nInstalled Steam apps:")
+    filtered_non_games = 0
+    saved_count = 0
 
     # Loop through each manifest and display information about the installed games
     for manifest in manifests:
@@ -177,6 +211,10 @@ def scan(args):
         if installdir:
             install_path = str((manifest.parent / "common" / installdir).resolve())
 
+        if not args.include_non_games and not is_likely_game(app_id, name, installdir):
+            filtered_non_games += 1
+            continue
+
         # Display the game information, optionally showing the manifest path if the --manifest-paths flag is set
         if args.manifest_paths:
             print(f"- {name} ({app_id})")
@@ -193,12 +231,19 @@ def scan(args):
                 manifest_path=manifest_path,
                 prefix_path=None,
             )
+            saved_count += 1
 
     # After processing all manifests, display a summary of the results, indicating how many games were found and whether they were saved to the database (if not in dry run mode)
     if args.dry_run:
-        print(f"\nDry run complete. Found {len(manifests)} Steam apps. Nothing saved.")
+        print(
+            f"\nDry run complete. Found {len(manifests)} Steam apps, "
+            f"filtered {filtered_non_games} non-games. Nothing saved."
+        )
     else:
-        print(f"\nSaved {len(manifests)} Steam apps to database.")
+        print(
+            f"\nSaved {saved_count} Steam apps to database "
+            f"(filtered {filtered_non_games} non-games)."
+        )
 
 def init_database(args):
     """
@@ -231,6 +276,11 @@ def main():
         "--dryrun",
         action="store_true",
         help="Scan without saving results to the database"
+    )
+    scan_parser.add_argument(
+        "--include-non-games",
+        action="store_true",
+        help="Include compatibility tools/runtimes and other non-game apps"
     )
     # Set the default function to call for the scan command
     scan_parser.set_defaults(func=scan)
@@ -273,6 +323,16 @@ def main():
         "--force",
         action="store_true",
         help="Replace incorrect existing links where possible"
+    )
+    sync_parser.add_argument(
+        "--include-non-games",
+        action="store_true",
+        help="Also sync non-game apps such as compatibility tools"
+    )
+    sync_parser.add_argument(
+        "--remove-non-games",
+        action="store_true",
+        help="Remove existing synced entries for filtered non-game apps"
     )
     sync_parser.set_defaults(func=sync_shared_profix)
 

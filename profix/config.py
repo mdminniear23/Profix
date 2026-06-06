@@ -50,3 +50,17 @@ def get_shared_profix_proton_path() -> Path | None:
 def get_shared_profix_auto_init() -> bool:
     """Get the auto_init setting from the configuration, which indicates whether to automatically initialize the database. Defaults to True if not set."""
     return bool(_shared().get("auto_init", True))
+
+
+def get_non_game_appids() -> set[str]:
+    """Get app IDs to exclude from game workflows."""
+    config = load_default_config()
+    raw = config.get("non_game_appids", [])
+    return {str(item).strip() for item in raw if str(item).strip()}
+
+
+def get_non_game_name_patterns() -> list[str]:
+    """Get lowercase name patterns used to exclude non-game apps."""
+    config = load_default_config()
+    raw = config.get("non_game_name_patterns", [])
+    return [str(item).strip().lower() for item in raw if str(item).strip()]

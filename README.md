@@ -13,6 +13,7 @@ Profix scans your Steam installations for installed games, parses their app mani
 - Saves and updates game metadata in a local SQLite database (`~/.local/share/profix/profix.db`)
 - Initializes a single shared Proton prefix for tool and mod-manager reuse
 - Syncs symlinked game directories into the shared prefix so tools can use stable Windows-style paths
+- Filters known non-game apps (Proton/runtimes/redistributables) by default
 - Supports dry-run mode to preview scan results without writing to the database
 - Optionally displays the path to each manifest file during a scan
 
@@ -52,6 +53,12 @@ Preview results without saving to the database:
 
 ```bash
 profix scan --dry-run
+```
+
+Include non-game apps during scan (disabled by default):
+
+```bash
+profix scan --include-non-games
 ```
 
 ### Initialize the database
@@ -109,6 +116,18 @@ Force replacement of incorrect existing links:
 profix sync-shared-profix --force
 ```
 
+Include non-game apps during sync (disabled by default):
+
+```bash
+profix sync-shared-profix --include-non-games
+```
+
+Remove existing synced entries for filtered non-game apps:
+
+```bash
+profix sync-shared-profix --remove-non-games
+```
+
 ## Configuration
 
 Default Steam search paths are defined in `profix/data/default.yml`:
@@ -125,6 +144,18 @@ Profix will scan whichever of these directories actually exist on your system.
 Shared profix settings are also configured in `profix/data/default.yml`:
 
 ```yaml
+non_game_appids:
+  - "1493710"
+  - "228980"
+  - "1070560"
+  - "4183110"
+
+non_game_name_patterns:
+  - "proton"
+  - "steam linux runtime"
+  - "redistributable"
+  - "compatibility tool"
+
 shared_profix:
   root: ~/.local/share/profix/shared
   games_dir: drive_c/Games
@@ -138,6 +169,8 @@ shared_profix:
 - `link_name_template`: template for symlink names
 - `proton_path`: optional explicit Proton executable path
 - `auto_init`: auto-initialize shared profix during sync if needed
+- `non_game_appids`: app IDs excluded from scan/sync by default
+- `non_game_name_patterns`: case-insensitive text patterns used to exclude non-game apps
 
 ## Database
 

@@ -1,4 +1,5 @@
 from pathlib import Path
+import shutil
 
 
 def _sanitize_link_name(name: str) -> str:
@@ -105,3 +106,28 @@ def reconcile_game_layout(
     if "skipped" in {common_result, pfx_result}:
         return "skipped"
     return "created"
+
+
+def remove_game_dir_entry(game_dir: Path, dry_run: bool) -> str:
+    """
+    Remove a synced game directory entry from shared profix.
+
+    Returns one of: removed, unchanged, failed.
+    """
+    if not game_dir.exists() and not game_dir.is_symlink():
+        return "unchanged"
+
+    if dry_run:
+        return "removed"
+
+    try:
+        if game_dir.is_symlink() or game_dir.is_file():
+            game_dir.unlink()
+        elif game_dir.is_dir():
+            shutil.rmtree(game_dir)
+        else:
+            return "failed"
+    except OSError:
+        return "failed"
+
+    return "removed"
