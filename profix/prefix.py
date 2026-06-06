@@ -23,9 +23,17 @@ def _ensure_symlink(link_path, target_path):
     Create a symlink if it does not exist, allowing idempotent re-runs.
     """
     if link_path.is_symlink():
-        if link_path.readlink() == target_path:
+        current_target = link_path.readlink()
+        expected_target = target_path
+
+        if not expected_target.is_absolute():
+            expected_target = (link_path.parent / expected_target).resolve()
+
+        if current_target == target_path or link_path.resolve() == expected_target:
             return
-        raise FileExistsError(f"{link_path} already points somewhere else")
+        raise FileExistsError(
+            f"Symlink {link_path} points to {current_target}, expected {target_path}"
+        )
 
     if link_path.exists():
         raise FileExistsError(f"{link_path} already exists")
@@ -38,6 +46,8 @@ def parse_link_spec(link_spec):
     Parse a link spec in the form WINDOWS_PATH=TARGET_PATH.
     """
     windows_path, separator, target_path = link_spec.partition("=")
+    windows_path = windows_path.strip()
+    target_path = target_path.strip()
 
     if not separator or not windows_path or not target_path:
         raise ValueError("Link specs must use the format WINDOWS_PATH=TARGET_PATH")
