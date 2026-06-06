@@ -40,3 +40,25 @@ def get_games():
     """
     with get_connection() as conn:
         return conn.execute(read_sql("get_games.sql")).fetchall()
+
+def get_games_for_sync():
+    """
+    Retrieve game rows needed for shared profix symlink sync.
+    """
+    query = """
+    SELECT app_id, name, install_path, manifest_path
+    FROM games
+    ORDER BY name
+    """
+    with get_connection() as conn:
+        return conn.execute(query).fetchall()
+
+def set_game_prefix_path(app_id, prefix_path):
+    """
+    Update the prefix path for a specific game.
+    """
+    with get_connection() as conn:
+        conn.execute(
+            "UPDATE games SET prefix_path = ?, last_seen_at = CURRENT_TIMESTAMP WHERE app_id = ?",
+            (prefix_path, app_id),
+        )

@@ -3,8 +3,15 @@ import argparse
 import subprocess
 from pathlib import Path
 
-from profix.config import get_shared_profix_root, get_shared_profix_proton_path
-from profix.db import init_db, save_game
+from profix.config import (
+    get_shared_profix_root,
+    get_shared_profix_proton_path,
+    get_shared_profix_games_dir,
+    get_shared_profix_link_name_template,
+    get_shared_profix_auto_init,
+)
+from profix.db import init_db, save_game, get_games_for_sync, set_game_prefix_path
+from profix.profix_sync import ensure_shared_games_dir, render_link_name, reconcile_game_layout
 from profix.steam import (
     find_steam_paths,
     find_app_manifests,
@@ -52,6 +59,77 @@ def init_shared_profix(args):
         raise RuntimeError("Prefix init command completed, but pfx layout was not created.")
 
     print(f"Initialized shared profix at: {shared_root / 'pfx'}")
+
+
+def sync_shared_profix(args):
+    """
+    Sync symlinks for all scanned Steam games into the shared profix games directory.
+    """
+    shared_root = get_shared_profix_root()
+    pfx_path = shared_root / "pfx"
+
+    if not _is_prefix_initialized(shared_root):
+        if get_shared_profix_auto_init() and not args.dry_run:
+            init_shared_profix(argparse.Namespace(force=False, proton_path=None))
+        else:
+            raise RuntimeError(
+                "Shared profix is not initialized. Run 'profix init-shared-profix' first."
+            )
+
+    games_dir_rel = get_shared_profix_games_dir()
+    link_template = get_shared_profix_link_name_template()
+    games_dir = ensure_shared_games_dir(shared_root, games_dir_rel)
+
+    games = get_games_for_sync()
+    if not games:
+        print("No games found in database. Run 'profix scan' first.")
+        return
+
+    counts = {"created": 0, "unchanged": 0, "skipped": 0, "failed": 0}
+
+    print(f"Syncing {len(games)} games into: {games_dir}")
+
+    for app_id, name, install_path, manifest_path in games:
+        link_name = render_link_name(link_template, name or "Unknown", app_id or "unknown")
+        game_dir = games_dir / link_name
+
+        if not install_path or not manifest_path:
+            counts["skipped"] += 1
+            print(f"- skipped {name} ({app_id}): missing install_path or manifest_path")
+            continue
+
+        manifest_parent = Path(manifest_path).parent
+        pfx_target = manifest_parent / "compatdata" / str(app_id) / "pfx"
+
+        result = reconcile_game_layout(
+            game_dir=game_dir,
+            common_target=Path(install_path),
+            pfx_target=pfx_target,
+            force=args.force,
+            dry_run=args.dry_run,
+        )
+        counts[result] += 1
+
+        if result == "failed":
+            print(f"- failed  {name} ({app_id}): path conflict at {game_dir}")
+        elif result == "skipped":
+            print(f"- skipped {name} ({app_id})")
+        elif result == "created":
+            if args.dry_run:
+                print(f"- would-link {name} ({app_id}) with common/ and pfx/")
+            else:
+                print(f"- linked  {name} ({app_id}) with common/ and pfx/")
+
+        if result in {"created", "unchanged"} and not args.dry_run:
+            set_game_prefix_path(app_id, str(game_dir / "pfx"))
+
+    print(
+        "\nSync complete: "
+        f"created={counts['created']} "
+        f"unchanged={counts['unchanged']} "
+        f"skipped={counts['skipped']} "
+        f"failed={counts['failed']}"
+    )
 
 def scan(args):
     """
@@ -179,6 +257,24 @@ def main():
     db_parser = subparsers.add_parser("init-db", help="Initialize the Profix database")
     # Set the default function to call for the init-db command
     db_parser.set_defaults(func=init_database)
+
+    # Sync-shared-profix command to create/update game directory symlinks in the shared prefix
+    sync_parser = subparsers.add_parser(
+        "sync-shared-profix",
+        help="Sync all scanned games into the shared profix as symlinks"
+    )
+    sync_parser.add_argument(
+        "--dry-run",
+        "--dryrun",
+        action="store_true",
+        help="Show what would be linked without making filesystem changes"
+    )
+    sync_parser.add_argument(
+        "--force",
+        action="store_true",
+        help="Replace incorrect existing links where possible"
+    )
+    sync_parser.set_defaults(func=sync_shared_profix)
 
     # Parse arguments and call the appropriate function
     args = parser.parse_args()
