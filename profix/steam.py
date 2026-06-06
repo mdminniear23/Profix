@@ -1,6 +1,6 @@
 # profix/steam.py
 from pathlib import Path
-from profix.config import get_steam_paths
+from profix.config import get_steam_paths, get_non_game_appids, get_non_game_name_patterns
 
 def find_steam_paths():
     """
@@ -101,3 +101,25 @@ def resolve_proton_path(configured: Path | None) -> Path:
             "No Proton executable found. Set shared_profix.proton_path in config."
         )
     return candidates[0]
+
+
+def is_likely_game(app_id: str | None, name: str | None, installdir: str | None = None) -> bool:
+    """
+    Determine whether an app should be treated as a game.
+
+    Steam appmanifest files do not reliably include a strict type field, so this
+    uses configurable deny-lists for known non-game app IDs and name patterns.
+    """
+    normalized_app_id = str(app_id or "").strip()
+    if normalized_app_id and normalized_app_id in get_non_game_appids():
+        return False
+
+    text_fields = " ".join(
+        part for part in [name or "", installdir or ""] if part
+    ).lower()
+
+    for pattern in get_non_game_name_patterns():
+        if pattern and pattern in text_fields:
+            return False
+
+    return True

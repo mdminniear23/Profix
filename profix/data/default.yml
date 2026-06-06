@@ -2,6 +2,23 @@ steam_paths:
   - ~/.local/share/Steam
   - ~/.steam/steam
   - ~/.var/app/com.valvesoftware.Steam/data/Steam
+
+non_game_appids:
+  - "1493710"  # Proton Experimental
+  - "228980"   # Steamworks Common Redistributables
+  - "1070560"  # Steam Linux Runtime 1.0 (scout)
+  - "4183110"  # Steam Linux Runtime 4.0
+
+non_game_name_patterns:
+  - "proton"
+  - "steam linux runtime"
+  - "redistributable"
+  - "compatibility tool"
+
+tools:
+  vortex:
+    installer_url: "https://github.com/Nexus-Mods/Vortex/releases/latest/download/vortex-setup.exe"
+
 shared_profix:
   root: ~/.local/share/profix/shared
   games_dir: drive_c/Games

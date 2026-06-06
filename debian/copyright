@@ -1,0 +1,10 @@
+Format: https://www.debian.org/doc/packaging-manuals/copyright-format/1.0/
+Upstream-Name: profix
+Source: https://github.com/mdminniear23/Profix
+
+Files: *
+Copyright: 2026 mdminniear23
+License: proprietary
+
+License: proprietary
+ This package is distributed without a declared open source license.
