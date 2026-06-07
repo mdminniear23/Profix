@@ -1,6 +1,6 @@
 # profix/steam.py
 from pathlib import Path
-from profix.config import get_steam_paths, get_non_game_appids, get_non_game_name_patterns
+from profix.services.config import get_steam_paths, get_non_game_appids, get_non_game_name_patterns
 
 def find_steam_paths():
     """

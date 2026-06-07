@@ -1,7 +1,7 @@
 from pathlib import Path
 import yaml
 
-DEFAULT_CONFIG_PATH = Path(__file__).parent / "data" / "default.yml"
+DEFAULT_CONFIG_PATH = Path(__file__).parent.parent / "data" / "default.yml"
 
 
 def load_default_config():
@@ -27,6 +27,14 @@ def _tools():
     """Get the tools configuration section as a dictionary."""
     config = load_default_config()
     return config.get("tools", {}) or {}
+
+
+def _non_game(config: dict) -> dict:
+    """Get the non-game configuration section as a dictionary."""
+    non_game = config.get("non_game", {})
+    if isinstance(non_game, dict):
+        return non_game
+    return {}
 
 
 def get_shared_profix_root() -> Path:
@@ -61,14 +69,20 @@ def get_shared_profix_auto_init() -> bool:
 def get_non_game_appids() -> set[str]:
     """Get app IDs to exclude from game workflows."""
     config = load_default_config()
-    raw = config.get("non_game_appids", [])
+    raw = _non_game(config).get("appids")
+    if raw is None:
+        # Backward compatibility with older config shape.
+        raw = config.get("non_game_appids", [])
     return {str(item).strip() for item in raw if str(item).strip()}
 
 
 def get_non_game_name_patterns() -> list[str]:
     """Get lowercase name patterns used to exclude non-game apps."""
     config = load_default_config()
-    raw = config.get("non_game_name_patterns", [])
+    raw = _non_game(config).get("name_patterns")
+    if raw is None:
+        # Backward compatibility with older config shape.
+        raw = config.get("non_game_name_patterns", [])
     return [str(item).strip().lower() for item in raw if str(item).strip()]
 
 
