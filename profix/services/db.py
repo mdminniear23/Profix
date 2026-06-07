@@ -2,7 +2,7 @@ import sqlite3
 from pathlib import Path
 
 DB_PATH = Path.home() / ".local/share/profix/profix.db"
-SQL_DIR = Path(__file__).parent / "sql"
+SQL_DIR = Path(__file__).parent.parent / "sql"
 
 def read_sql(filename):
     """
